@@ -1,2 +1,2 @@
-# SATEDAR
- SATEDAR = SATellite Emission &amp; Detection Augmented Radar(website)
+# SKYDAR
+Radar if tthe Skies
