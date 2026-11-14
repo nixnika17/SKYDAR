@@ -1,1 +1,521 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#04060f">
+<title>SKYDAR - SPHEREx time-lapse viewer</title>
+<script src="https://telegram.org/js/telegram-web-app.js" async></script>
+<style>
+:root{--bg:#04060f;--glass:rgba(14,22,46,.62);--stroke:rgba(120,170,255,.2);--cy:#5ee6ff;--vi:#9b7bff;--or:#ffb347;--rd:#ff5d73;--gr:#5df2a0;--tx:#eaf0ff;--dim:#8b97b8}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{color:var(--tx);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;display:flex;flex-direction:column;height:100dvh;overflow:hidden;
+ background:radial-gradient(900px 600px at 80% -10%,#1b1f55 0,transparent 60%),radial-gradient(800px 600px at -10% 110%,#08364f 0,transparent 55%),var(--bg)}
+#stars{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+header,main,.tabs{position:relative;z-index:1}
+header{display:flex;align-items:center;gap:12px;padding:12px 16px 8px;padding-top:max(12px,env(safe-area-inset-top))}
+.logo{width:34px;height:34px;border-radius:50%;border:2px solid var(--cy);position:relative;box-shadow:0 0 14px rgba(94,230,255,.5),inset 0 0 10px rgba(94,230,255,.25);overflow:hidden;flex:none}
+.logo::before{content:"";position:absolute;inset:0;background:conic-gradient(from 0deg,rgba(94,230,255,.9),transparent 35%);animation:spin 3s linear infinite}
+.logo::after{content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px;background:#fff;border-radius:50%;box-shadow:0 0 8px #fff}
+@keyframes spin{to{transform:rotate(360deg)}}
+h1{margin:0;font-size:19px;letter-spacing:.22em;font-weight:800;background:linear-gradient(90deg,var(--cy),var(--vi));-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{font-size:11px;color:var(--dim);letter-spacing:.04em}
+.badge{margin-left:auto;font-size:11px;padding:4px 9px;border-radius:99px;background:rgba(255,179,71,.12);color:var(--or);border:1px solid rgba(255,179,71,.4)}
+main{flex:1;min-height:0}
+section{position:absolute;inset:0;overflow:auto;padding:4px 14px 18px;display:none}section.on{display:block}
+.glass{background:var(--glass);border:1px solid var(--stroke);border-radius:18px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.wrap{max-width:520px;margin:0 auto}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:4px 0 10px;scrollbar-width:none}.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;padding:9px 13px;border-radius:14px;color:var(--tx);text-align:left;font:inherit;cursor:pointer}
+.chip b{display:block;font-size:14px}.chip span{font-size:11px;color:var(--dim)}
+.chip.on{border-color:var(--cy);box-shadow:0 0 14px rgba(94,230,255,.3)}
+.stage{position:relative;max-width:520px;margin:0 auto;border-radius:20px;overflow:hidden;border:1px solid var(--stroke);box-shadow:0 0 40px rgba(94,150,255,.18)}
+.stage canvas{display:block;width:100%;aspect-ratio:1;background:#02040a;touch-action:manipulation;cursor:crosshair}
+.stage.load::after{content:"";position:absolute;left:0;right:0;height:60px;top:-60px;background:linear-gradient(transparent,rgba(94,230,255,.25),transparent);animation:scan 1.6s linear infinite}
+@keyframes scan{to{top:100%}}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;color:var(--dim);font-size:14px;pointer-events:none}
+.hint{position:absolute;left:12px;right:12px;bottom:12px;padding:8px 12px;border-radius:12px;background:rgba(4,8,20,.75);border:1px solid var(--stroke);font-size:13px;text-align:center;animation:pulse 2s ease-in-out infinite;pointer-events:none}
+@keyframes pulse{50%{box-shadow:0 0 16px rgba(94,230,255,.5)}}
+.panel{padding:12px 14px;margin:12px auto 0;max-width:520px}
+.lbl{font-size:12px;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;display:flex;justify-content:space-between;gap:8px}
+.seg{display:flex;gap:6px;flex-wrap:wrap}.seg button{flex:1;min-width:70px;padding:10px 6px;border-radius:12px;border:1px solid var(--stroke);background:rgba(255,255,255,.03);color:var(--dim);font:inherit;font-size:13px;cursor:pointer}
+.seg button.on{color:#04101a;background:linear-gradient(135deg,var(--cy),#7fb0ff);border-color:transparent;font-weight:700;box-shadow:0 0 16px rgba(94,230,255,.4)}
+.timeline{display:flex;align-items:center;gap:12px}
+#play{flex:none;width:48px;height:48px;border-radius:50%;border:0;font-size:18px;color:#04101a;background:linear-gradient(135deg,var(--cy),var(--vi));box-shadow:0 0 20px rgba(130,150,255,.55);cursor:pointer}
+input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:8px;border-radius:99px;background:linear-gradient(90deg,rgba(94,230,255,.25),rgba(155,123,255,.25));outline:none;min-width:0;width:100%}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;border-radius:50%;background:#fff;border:3px solid var(--cy);box-shadow:0 0 14px var(--cy)}
+input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:#fff;border:3px solid var(--cy)}
+#w{background:linear-gradient(90deg,#6aa7ff,#9b7bff,#ff6fae,#ff5d4d)}
+.dots{display:flex;justify-content:space-between;margin:8px 4px 0 64px}
+.dots button{background:none;border:0;color:var(--dim);font:inherit;font-size:11px;cursor:pointer;padding:2px 0;text-align:center}
+.dots button.on{color:var(--cy);font-weight:700}
+.dots button::before{content:"";display:block;width:9px;height:9px;margin:0 auto 4px;border-radius:50%;background:var(--dim)}
+.dots button.on::before{background:var(--cy);box-shadow:0 0 10px var(--cy)}
+select,input[type=text]{background:rgba(255,255,255,.06);color:var(--tx);border:1px solid var(--stroke);border-radius:10px;padding:9px;font:inherit;min-width:0;width:100%}
+select option{background:#0b1226}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form label{font-size:11px;color:var(--dim);letter-spacing:.05em;text-transform:uppercase;display:block;margin-bottom:4px}
+.form .full{grid-column:1/-1}
+.legend{font-size:13px;color:var(--dim)}.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin:0 4px 0 8px;vertical-align:baseline}
+.chk{display:flex;align-items:center;gap:8px;font-size:14px;margin:6px 0;cursor:pointer}.chk input{width:18px;height:18px;accent-color:#5ee6ff}
+.find{display:flex;gap:12px;padding:12px;margin:8px 0;border-radius:16px;cursor:pointer;border:1px solid var(--stroke);background:var(--glass)}
+.find.on{border-color:var(--cy);box-shadow:0 0 16px rgba(94,230,255,.25)}
+.find .ic{font-size:26px;flex:none}.find b{display:block}.find small{color:var(--dim);display:block}
+.meter{height:4px;border-radius:9px;background:rgba(255,255,255,.1);margin-top:8px;overflow:hidden}.meter i{display:block;height:100%;background:linear-gradient(90deg,var(--cy),var(--vi))}
+.msg{text-align:center;color:var(--dim);font-size:13px;margin:10px 0}.msg.err{color:var(--rd)}
+.btn{padding:11px 16px;border-radius:14px;border:1px solid var(--stroke);background:var(--glass);color:var(--tx);font:inherit;cursor:pointer;text-decoration:none;display:inline-block;text-align:center}
+.btn.pri{background:linear-gradient(135deg,var(--cy),var(--vi));color:#04101a;font-weight:700;border:0;box-shadow:0 0 20px rgba(130,150,255,.5)}
+.row{display:flex;gap:8px}.row>*{flex:1}
+table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:5px 4px;text-align:left;border-bottom:1px solid var(--stroke)}th{color:var(--dim);font-weight:600}
+td.warn{color:var(--or);font-weight:700}
+#spec{display:block;width:100%;height:auto;border-radius:12px;background:rgba(2,4,10,.6)}
+.about h2{font-size:17px;margin:18px 0 6px}.about p,.about li{color:#c4cde6;margin:6px 0}.about code{background:rgba(255,255,255,.08);padding:1px 6px;border-radius:6px;font-size:12px;word-break:break-all}
+.step{display:flex;gap:12px;padding:12px;margin:10px 0;border-radius:16px}.step .n{flex:none;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-weight:800;color:#04101a;background:linear-gradient(135deg,var(--cy),var(--vi))}
+.tabs{display:flex;border-top:1px solid var(--stroke);background:rgba(4,8,20,.85);backdrop-filter:blur(14px);padding-bottom:env(safe-area-inset-bottom)}
+.tab{flex:1;background:none;border:0;color:var(--dim);padding:9px 0 8px;font:inherit;font-size:11px;cursor:pointer}
+.tab span{display:block;font-size:21px;line-height:1.1;filter:grayscale(1) opacity(.7)}
+.tab.on{color:var(--cy)}.tab.on span{filter:drop-shadow(0 0 8px var(--cy))}
+.embed header,.embed .tabs,.embed .noembed,.embed .adv{display:none!important}
+details.adv>summary{list-style:none}details.adv .panel{max-width:none}
+#v-sky{padding:0;overflow:hidden;touch-action:none}
+#skycv{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;touch-action:none}
+.sk-top{position:absolute;left:10px;right:10px;top:8px;display:flex;flex-wrap:wrap;gap:6px;z-index:5;align-items:center}
+.tg{padding:7px 11px;border-radius:99px;background:rgba(8,14,34,.78);border:1px solid var(--stroke);color:var(--dim);font:inherit;font-size:12px;cursor:pointer;backdrop-filter:blur(8px)}
+.tg.on{color:#04101a;background:var(--cy);border-color:transparent;font-weight:700}
+.tm{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:99px;background:rgba(8,14,34,.78);border:1px solid var(--stroke);font-size:12px;color:var(--dim)}
+.tm input{width:110px}.tm span{min-width:34px;cursor:pointer;color:var(--cy)}
+.sk-hint{position:absolute;left:12px;right:12px;bottom:14px;padding:9px 14px;border-radius:14px;background:rgba(4,8,20,.8);border:1px solid var(--stroke);font-size:13px;text-align:center;pointer-events:none;animation:pulse 2.4s ease-in-out infinite}
+.sk-card,.sk-sheet{position:absolute;left:10px;right:10px;bottom:10px;max-width:480px;margin:0 auto;padding:14px 16px;z-index:6;max-height:62%;overflow:auto;background:rgba(10,16,38,.9)}
+.sk-sheet{top:56px;bottom:10px;max-height:none}
+.x{float:right;background:none;border:0;color:var(--dim);font-size:18px;cursor:pointer}
+#toast{position:fixed;left:50%;top:84px;transform:translateX(-50%);z-index:20;max-width:92vw;padding:10px 16px;border-radius:14px;background:rgba(10,16,38,.95);border:1px solid var(--cy);box-shadow:0 0 24px rgba(94,230,255,.35);font-size:14px;text-align:center}
+#missionBox{border-color:rgba(255,209,102,.55)}
+.modesw{margin-left:auto;display:flex;border:1px solid var(--stroke);border-radius:99px;overflow:hidden;flex:none}
+.modesw button{background:rgba(8,14,34,.7);color:var(--dim);border:0;padding:6px 10px;font:inherit;font-size:12px;cursor:pointer}
+.modesw button.on{background:linear-gradient(135deg,var(--cy),var(--vi));color:#04101a;font-weight:700}
+.ev{padding:14px 16px;margin:10px auto;max-width:520px;border-radius:16px}.ev p{color:#d6def5}
+.evh{display:flex;gap:12px;align-items:center}.evi{font-size:28px}
+#evStatus{margin-top:8px;font-size:13px}
+.hbtn{flex:none;width:32px;height:32px;margin-left:6px;border-radius:50%;background:rgba(8,14,34,.7);border:1px solid var(--stroke);color:var(--tx);font-size:15px;cursor:pointer}
+#tg-menu{display:none}.sk-menu{display:contents}
+@media (max-width:700px){
+ #tg-menu{display:inline-block}.hfull{display:none}
+ .sk-menu{display:none;flex-wrap:wrap;gap:6px;width:100%;padding:8px;border-radius:16px;background:rgba(4,8,20,.92);border:1px solid var(--stroke);max-height:62vh;overflow:auto}
+ .sk-menu.open{display:flex}
+ header{padding:8px 12px 4px;gap:8px}.sub{display:none}h1{font-size:16px;letter-spacing:.16em}.modesw button{padding:5px 8px;font-size:11px}.badge{padding:3px 7px}
+}
+.banner{margin:0 12px 8px;padding:10px 12px;border-radius:14px;border:1px solid;position:relative;z-index:30;font-size:13px;line-height:1.4}
+.banner.err{background:rgba(60,10,20,.94);border-color:var(--rd)}.banner.warn{background:rgba(58,40,6,.94);border-color:var(--or)}.banner.info{background:rgba(8,30,50,.94);border-color:var(--cy)}
+.banner .bt{display:flex;justify-content:space-between;gap:8px;font-size:14px}.banner .bd{margin-top:4px;color:#e6ebff}.banner .ba{margin-top:8px;flex-wrap:wrap}.banner .ba .btn{padding:7px 10px;font-size:13px;flex:0 1 auto}
+.banner .x{background:none;border:0;color:var(--dim);font-size:16px;cursor:pointer}
+</style></head><body>
+<canvas id="stars"></canvas><div id="toast" hidden></div>
+<header><div class="logo"></div><div><h1>SKYDAR</h1><div class="sub">watch the sky change · NASA SPHEREx</div></div><div class="modesw" id="modeSw" title="Where the data comes from"><button data-m="demo">🧪 Demo</button><button data-m="real">🛰 Real</button></div><span id="score" class="badge" style="margin-left:8px;color:#ffd166;border-color:rgba(255,209,102,.5);background:rgba(255,209,102,.1)">⭐ 0/5</span><button class="hbtn" id="hb-web" hidden title="Open in your browser (full screen)">🌐</button><button class="hbtn hfull" id="hb-full" title="Full screen">⛶</button></header>
+<div id="banner" class="banner" hidden></div>
+<main>
+<section id="v-view">
+ <div class="wrap noembed">
+  <button class="btn" id="backSky" style="margin-bottom:8px">← Back to the sky</button>
+  <div class="panel glass" id="missionBox" hidden style="margin-top:4px"></div>
+  <div class="panel glass" id="introBox" style="margin-top:4px">
+   <b>What is this?</b>
+   <div class="legend" style="margin-top:4px">NASA’s SPHEREx telescope photographs the whole sky every ~6 months. Here you see the <b>same patch of sky on different dates</b>. Press <b>▶</b>: stars stay still, but anything that <b>moves</b> (asteroid, nearby star, brown dwarf) or <b>changes brightness</b> (variable star) jumps out. Start with a preset below, e.g. <b>WISE 0855</b>.</div>
+  </div>
+  <div class="panel glass">
+   <div class="form">
+    <div><label for="inRA">Right ascension</label><input type="text" id="inRA" inputmode="text" autocomplete="off" placeholder="133.7951  or  08h55m10.8s"></div>
+    <div><label for="inDec">Declination</label><input type="text" id="inDec" inputmode="text" autocomplete="off" placeholder="-7.2452  or  -07d14m42.5s"></div>
+    <div><label for="inFov">Field of view</label><select id="inFov"><option value="0.05">0.05° (3′) · slow</option><option value="0.1">0.1° (6′)</option><option value="0.15">0.15° (9′)</option><option value="0.25">0.25° (15′)</option><option value="0.5">0.5° (30′) · fast movers</option></select></div>
+    <div><label for="inDet">Detector (band group)</label><select id="inDet"></select></div>
+    <button class="btn pri full" id="load">🔭 Load time-lapse</button>
+   </div>
+   <div class="legend" style="margin-top:8px;font-size:12px">Degrees or sexagesimal (hours for RA). Larger fields catch faster movers but take longer to download.</div>
+  </div>
+  <div class="chips" id="chips" style="margin-top:8px"></div>
+ </div>
 
+ <div class="stage load" id="stage"><canvas id="cv" width="480" height="480"></canvas><div class="over" id="over">Loading SPHEREx images…</div><div class="hint" id="hint" hidden>👆 Press ▶ or drag the time slider · click the image to get a spectrum</div></div>
+
+ <div class="panel glass">
+  <div class="lbl"><span>Time (survey epochs)</span><span id="info"></span></div>
+  <div class="timeline"><button id="play" aria-label="Play time-lapse">▶</button><input id="t" type="range" min="0" max="0" value="0"></div>
+  <div class="dots" id="dots"></div>
+ </div>
+
+ <div class="msg" id="summary"></div>
+ <div class="msg" id="msg"></div>
+ <details class="panel glass adv"><summary style="cursor:pointer;font-weight:700">⚙ Advanced tools <span class="legend">(compare modes, bands, Gaia/WISE overlays, spectrum, candidates)</span></summary>
+ <div class="panel" style="padding:8px 0 0;margin:0">
+  <div class="lbl"><span>Layer</span></div>
+  <div class="seg" id="segLayer"><button data-layer="raw" class="on">🔭 Image</button><button data-layer="diff">🔥 Difference</button></div>
+  <div class="legend" id="legend" style="margin-top:8px"></div>
+  <div class="lbl" style="margin-top:14px"><span>Compare epochs</span></div>
+  <div class="seg" id="segView"><button data-view="slide" class="on">⏱ Sequence</button><button data-view="blink">👁 Blink</button><button data-view="swipe">↔ Swipe</button><button data-view="sub">➖ A − B</button><button data-view="add">➕ A + B</button></div>
+  <div id="cmp" hidden style="margin-top:10px">
+   <div class="lbl"><span>Reference epoch (A)</span><select id="selA" style="width:auto"></select></div>
+   <input id="wipe" type="range" min="0" max="100" value="50" hidden>
+   <div class="legend" id="cmpHelp"></div>
+  </div>
+ </div>
+
+ <div class="panel glass">
+  <div class="lbl"><span>Infrared band</span><span id="wl"></span></div>
+  <label class="chk"><input type="checkbox" id="coadd"> Co-add all bands of this detector (better S/N, loses colour)</label>
+  <input type="range" id="w" min="0" max="0" value="0">
+  <div class="legend" style="margin-top:6px">SPHEREx wavelength changes across each frame, so only frames of the same wavelength are compared.</div>
+ </div>
+
+ <div class="panel glass">
+  <div class="lbl"><span>Overlays</span></div>
+  <label class="chk"><input type="checkbox" id="ovCand" checked> <i style="color:var(--rd)">◯</i> Change candidates</label>
+  <label class="chk"><input type="checkbox" id="ovGaia"> <i style="color:var(--gr)">◇</i> Gaia DR3 (moved to 2026.0 with proper motion)</label>
+  <label class="chk"><input type="checkbox" id="ovWise"> <i style="color:#ff6fae">✚</i> AllWISE (epoch ~2010)</label>
+  <div class="legend" id="ovNote" style="margin-top:4px;font-size:12px"></div>
+ </div>
+
+ <div class="panel glass">
+  <div class="lbl"><span>Spectrum</span><span id="specPos"></span></div>
+  <canvas id="spec" width="480" height="230"></canvas>
+  <div class="legend" style="font-size:12px;margin-top:4px">Aperture flux (relative) vs wavelength, one colour per epoch. Click the image to pick a position.</div>
+ </div>
+
+ <div class="wrap"><div class="lbl" style="margin-top:6px"><span>Candidates</span></div><div id="finds"></div></div>
+
+ <div class="panel glass">
+  <div class="lbl"><span>Frame metadata</span></div>
+  <table><thead><tr><th>Epoch</th><th>Date</th><th>λ (µm)</th><th>Frames</th><th>Flagged px</th></tr></thead><tbody id="meta"></tbody></table>
+  <div class="legend" style="font-size:12px;margin-top:6px">“Flagged px” = share of pixels with any quality/contamination flag set in the SPHEREx cutout.</div>
+ </div>
+ </details>
+
+ <div class="panel row noembed" style="padding:0;margin-bottom:14px"><a class="btn" id="gif" target="_blank" rel="noopener">⬇ Blink GIF</a><button class="btn" id="share">🔗 Copy link</button></div>
+</section>
+
+<section id="v-sky" class="on">
+ <canvas id="skycv"></canvas>
+ <div class="sk-top">
+  <button class="tg" id="tg-menu">☰ Menu</button><button class="tg" id="tg-gyro">🧭 Gyroscope: off</button>
+  <div class="sk-menu" id="sk-menu">
+  <button class="tg on" id="tg-lines">✨ Constellations</button><button class="tg on" id="tg-names">🏷 Names</button>
+  <button class="tg" id="tg-xray">🌍 See through ground</button><button class="tg" id="tg-loc">📍 Location</button>
+  <label class="tm" title="How dark is your sky? Darker sky = more faint stars you can see">🌃 <select id="sk-dark" style="width:auto;padding:3px 6px"><option value="3.5">City centre</option><option value="4.5" selected>Suburb</option><option value="5.5">Countryside</option><option value="6.5">Very dark sky</option></select><span id="sk-dark-n" style="min-width:0;color:var(--dim);cursor:default"></span></label>
+  <button class="tg" id="tg-full">⛶ Full screen</button><button class="tg" id="tg-web" hidden>🌐 Open in browser</button>
+  <button class="tg" id="tg-ev" style="color:#ff8a9a;border-color:rgba(255,93,115,.5)">🔔 Events</button><button class="tg" id="tg-miss" style="color:#ffd166;border-color:rgba(255,209,102,.5)">🎯 Missions</button>
+  <label class="tm">⏱ <input type="range" id="tm" min="-12" max="12" step="0.25" value="0"><span id="tm-l" title="Back to now">now</span></label>
+ </div></div>
+ <div class="sk-hint" id="sk-hint">👆 Drag to look around · pinch or scroll to zoom · tap a star (or any spot) to see what is changing there · try a 🎯 mission</div>
+ <div class="glass sk-card" id="sk-info" hidden></div>
+ <div class="glass sk-sheet" id="sk-missions" hidden></div>
+</section>
+
+<section id="v-events"><div class="wrap">
+ <div class="panel glass" style="margin-top:4px">
+  <b>🔔 What is happening in the sky</b>
+  <div class="legend" style="margin-top:4px">Changes found in telescope images, turned into events - with <b>when</b> and <b>where</b> to look from your place. Data: <b id="evMode"></b></div>
+  <div class="row" style="margin-top:10px"><button class="btn" id="evScan">🔄 Scan again</button><button class="btn" id="evLoc">📍 Set my location</button></div>
+  <div class="legend" id="evStatus"></div><div class="legend" id="evBot" style="margin-top:4px;font-size:12px"></div><div class="legend" id="evSvc" style="margin-top:4px;font-size:12px"></div>
+ </div>
+ <div id="evList"></div>
+</div></section>
+<section id="v-about" class="about"><div class="wrap">
+ <h2>From dry telescope images to things you can go and see</h2>
+ <p>Most tools just show changes in telescope pictures. SKYDAR turns them into <b>events</b> - “something moved”, “a star got brighter”, “new data arrived”, “an asteroid passes through” - puts them as glowing dots on a sky map and tells you <b>when and where to look</b> from your own location. A Telegram bot can alert you.</p>
+ <h2>How to use it</h2>
+ <p>NASA’s <b>SPHEREx</b> maps the whole sky every six months in 102 near-infrared bands. SKYDAR shows the same patch of sky at different epochs like a short video, so moving objects (brown dwarfs, asteroids, nearby stars) and variable stars “jump out”.</p>
+ <div class="step glass"><div class="n">1</div><div><b>Look up</b><br><span class="legend">On the Sky tab you stand outside and look at tonight’s stars (drag to look around). Tap any star or any spot - or pick a 🎯 mission.</span></div></div>
+ <div class="step glass"><div class="n">2</div><div><b>Watch what changes</b><br><span class="legend">Sequence, blink, swipe, subtract (A − B), add, or the automatic difference layer.</span></div></div>
+ <div class="step glass"><div class="n">3</div><div><b>Become a scientist</b><br><span class="legend">Co-add bands, overlay Gaia / AllWISE, click anywhere for an on-the-fly spectrum, check frame flags.</span></div></div>
+ <h2>Embed or share a view</h2>
+ <p>Everything is controlled by the URL, so any view can be linked or embedded:</p>
+ <p><code id="exUrl"></code></p>
+ <p>Parameters: <code>demo</code> (1 = synthetic data, 0 = real SPHEREx data), <code>ra</code>, <code>dec</code> (degrees), <code>fov</code> (0.01–0.5°), <code>det</code> (D1–D6), <code>coadd=1</code>, <code>embed=1</code> (hides all chrome).</p>
+ <h2>Which stars are on the map?</h2>
+ <p>The sky map shows the stars a person can see with the naked eye (about 5,000 over the whole sky - roughly 2,000 at a time in the darkest places). The galaxy itself holds 100-400 <i>billion</i> stars; telescopes like SPHEREx see far fainter ones than your eyes.</p>
+ <p>Brightness is measured in <b>magnitude</b>: lower = brighter (Sirius is −1.5, the faintest naked-eye stars about 6). The 🌃 menu on the Sky tab sets how dark <i>your</i> sky is, so you only see what you could really see: city centre (~3.5), suburb (~4.5), countryside (~5.5), very dark sky (~6.5).</p>
+ <h2>About the project</h2>
+ <div class="step glass"><div class="n">🧑‍💻</div><div><b>Developer: <span id="devName"></span></b><br><span class="legend">Made for the NASA Space Apps Challenge 2026, “Planet X and SPHEREx”.</span></div></div>
+ <div class="step glass"><div class="n">🤖</div><div><b>Built with Claude</b><br><span class="legend">Developed together with Claude, an AI assistant by Anthropic: it helped write the code, design and documentation, while the developer set the goals, tested the result and chose what to keep.</span></div></div>
+ <h2>Honest about accuracy</h2>
+ <p>Results are <b>candidates</b>, not discoveries: there is no artefact masking or SIMBAD/SkyBoT cross-match, and a SPHEREx pixel is ~6″. “DEMO” marks synthetic data.</p>
+ <p class="legend">The sky map is drawn locally from the ~115 brightest stars (approximate positions, no planets or Moon yet). Data: NASA/IPAC Infrared Science Archive (IRSA) · Gaia (ESA) · AllWISE · DSS2/2MASS via CDS hips2fits.</p>
+</div></section>
+</main>
+<nav class="tabs"><button class="tab on" data-t="v-sky"><span>🌌</span>Sky</button><button class="tab" data-t="v-events"><span>🔔</span>Events</button><button class="tab" data-t="v-view"><span>🛰</span>Time-lapse</button><button class="tab" data-t="v-about"><span>✨</span>About</button></nav>
+
+<script src="skymath.js"></script><script src="stars.js"></script><script src="skymap.js"></script>
+<script>
+/* Inside Telegram? initData is EMPTY when the Mini App is opened from a keyboard button, so also check the platform and the launch parameters */
+const inTG=!!((window.Telegram&&window.Telegram.WebApp)&&(window.Telegram.WebApp.initData||(window.Telegram.WebApp.platform&&window.Telegram.WebApp.platform!=="unknown")||/tgWebApp/.test(location.hash)))||/Telegram/i.test(navigator.userAgent);
+const tg=window.Telegram?.WebApp; try{tg?.ready();tg?.expand();tg?.disableVerticalSwipes?.();tg?.setHeaderColor?.("#04060f");tg?.setBackgroundColor?.("#04060f")}catch(e){}
+const buzz=()=>{try{tg?.HapticFeedback?.selectionChanged()}catch(e){}};
+const $=id=>document.getElementById(id), cv=$("cv"), ctx=cv.getContext("2d"), S=480;
+const P=new URLSearchParams(location.search);
+if(P.get("embed")==="1")document.body.classList.add("embed");
+const num=(v,d)=>{const x=parseFloat(v);return isFinite(x)?x:d};
+let st={ra:num(P.get("ra"),133.79513),dec:num(P.get("dec"),-7.24515),fov:num(P.get("fov"),0.15),det:(P.get("det")||"D4").toUpperCase(),coadd:P.get("coadd")==="1"};
+let TARGETS=[],DET={};
+let DEMO=true,REAL_OK=true,REAL_MISSING=[],CFG={bot:""},EVENTS=[],evResp=null,evTimer=null;
+st.mission=P.get("mission");
+const KIND={mover:{ic:"🔴",t:"Possible moving object",d:"A bright spot shifts between epochs - typical for asteroids and nearby stars.",c:"#ff5d73"},
+ variable:{ic:"🟠",t:"Brightness change",d:"This source got brighter or fainter between epochs.",c:"#ffb347"},
+ transient:{ic:"🔵",t:"Appeared / disappeared",d:"A spot visible in one epoch only. May be an artefact.",c:"#5ee6ff"}};
+const EPCOL=["#5ee6ff","#9b7bff","#ffb347","#5df2a0","#ff6fae","#ffe066"];
+let meta=null,V=null,imgs={raw:[],diff:[]},cur=0,eA=0,layer="raw",view="slide",timer=null,hi=-1,blinkB=true,touched=false,tok=0;
+let ovl={gaia:null,wise:null},spec=null,specPt={nx:.5,ny:.5};
+
+// ---------- star background ----------
+(function(){const c=$("stars"),x=c.getContext("2d");let W,H,s=[];
+ function rs(){W=c.width=innerWidth;H=c.height=innerHeight;s=Array.from({length:110},()=>({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.2+.2,p:Math.random()*6}))}
+ rs();addEventListener("resize",rs);
+ (function f(t){x.clearRect(0,0,W,H);for(const q of s){x.globalAlpha=.35+.45*Math.sin(t/900+q.p);x.fillStyle="#cfe0ff";x.beginPath();x.arc(q.x,q.y,q.r,0,7);x.fill()}setTimeout(()=>requestAnimationFrame(f),60)})(0)})();
+
+// ---------- tabs ----------
+let viewReady=false;
+function showTab(id){document.querySelectorAll("section").forEach(s=>s.classList.toggle("on",s.id===id));
+ document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("on",b.dataset.t===id));
+ if(window.SkyMap){if(id==="v-sky")SkyMap.resume();else SkyMap.pause()}
+ if(id==="v-view"&&!viewReady)init();
+ if(id==="v-events")renderEvents(); buzz()}
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>showTab(b.dataset.t));
+
+// ---------- coordinates ----------
+function parseCoord(txt,isRA){
+ const s=String(txt).trim().toLowerCase().replace(/[−–]/g,"-"); if(!s)return NaN;
+ if(/^[+-]?\d+(\.\d+)?$/.test(s))return parseFloat(s);
+ const nums=s.match(/\d+(?:\.\d+)?/g); if(!nums)return NaN;
+ const [a,b=0,c=0]=nums.map(Number), neg=/^\s*-/.test(s)||/^-/.test(s);
+ let v=a+b/60+c/3600; if(neg)v=-v;
+ if(isRA&&!/d|°/.test(s))v*=15;   // sexagesimal RA is in hours unless marked as degrees
+ return v}
+function fmtDeg(v){return (+v).toFixed(5).replace(/0+$/,"").replace(/\.$/,"")}
+function readForm(){const ra=parseCoord($("inRA").value,true),dec=parseCoord($("inDec").value,false);
+ if(!(ra>=0&&ra<360)||!(dec>=-90&&dec<=90)){$("msg").className="msg err";$("msg").textContent="Could not read the coordinates. Use e.g. 133.7951 / -7.2452 or 08h55m10.8s / -07d14m42.5s.";return false}
+ st.ra=ra;st.dec=dec;st.fov=+$("inFov").value;st.det=$("inDet").value;st.coadd=$("coadd").checked;return true}
+function writeForm(){$("inRA").value=fmtDeg(st.ra);$("inDec").value=fmtDeg(st.dec);
+ if(![...$("inFov").options].some(o=>+o.value===st.fov)){const o=new Option(`${st.fov}°`,st.fov);$("inFov").add(o)}
+ $("inFov").value=st.fov;$("inDet").value=st.det;$("coadd").checked=st.coadd}
+function syncUrl(){const p=new URLSearchParams({ra:fmtDeg(st.ra),dec:fmtDeg(st.dec),fov:st.fov,det:st.det});if(st.coadd)p.set("coadd","1");p.set("demo",DEMO?"1":"0");if(st.mission)p.set("mission",st.mission);if(P.get("embed")==="1")p.set("embed","1");
+ try{history.replaceState(null,"","?"+p)}catch(e){}
+ $("exUrl").textContent=`${location.origin}/app/?ra=${fmtDeg(st.ra)}&dec=${fmtDeg(st.dec)}&fov=${st.fov}&det=${st.det}`;
+ $("gif").href=`/api/blink.gif?${q()}${gifWave()}`}
+const q=()=>`ra=${st.ra}&dec=${st.dec}&fov=${st.fov}&detector=${st.det}&demo=${DEMO}`;
+const gifWave=()=>st.coadd?"&coadd=true":(meta?`&wave=${meta.waves[$("w").value]?.w??""}`:"");
+
+function renderChips(){const near=t=>Math.abs(t.ra-st.ra)<2e-3&&Math.abs(t.dec-st.dec)<2e-3;const known=TARGETS.some(near);
+ $("chips").innerHTML=TARGETS.map((t,i)=>`<button class="chip glass ${near(t)?"on":""}" data-i="${i}" title="${t.note.replace(/"/g,"&quot;")}"><b>${t.emoji} ${t.name}</b><span>${t.ra.toFixed(3)}, ${t.dec.toFixed(3)}</span></button>`).join("")+
+  (known?"":`<button class="chip glass on"><b>📍 My position</b><span>${st.ra.toFixed(3)}, ${st.dec.toFixed(3)}</span></button>`);
+ document.querySelectorAll(".chip[data-i]").forEach(b=>b.onclick=()=>{const t=TARGETS[+b.dataset.i];st.mission=t.id;st.ra=t.ra;st.dec=t.dec;st.fov=t.fov;cur=0;specPt={nx:.5,ny:.5};writeForm();init();buzz()})}
+
+// ---------- drawing ----------
+const paint=i=>{const im=imgs[layer][i]; if(im)ctx.drawImage(im,0,0,S,S); else{ctx.fillStyle="#02040a";ctx.fillRect(0,0,S,S);label("no frame for this epoch",S/2,S/2,"center")}};
+function label(t,x,y,al){ctx.font="600 13px system-ui";ctx.textAlign=al||"left";const w=ctx.measureText(t).width,px=al==="right"?x-w:al==="center"?x-w/2:x;
+ ctx.fillStyle="rgba(2,6,18,.72)";ctx.fillRect(px-6,y-14,w+12,22);ctx.fillStyle="#eaf0ff";ctx.fillText(t,x,y)}
+function hud(){ctx.strokeStyle="rgba(94,230,255,.8)";ctx.lineWidth=2;const m=10,l=22;
+ [[m,m,1,1],[S-m,m,-1,1],[m,S-m,1,-1],[S-m,S-m,-1,-1]].forEach(([x,y,a,b])=>{ctx.beginPath();ctx.moveTo(x,y+b*l);ctx.lineTo(x,y);ctx.lineTo(x+a*l,y);ctx.stroke()});
+ ctx.fillStyle="rgba(234,240,255,.8)";ctx.font="11px system-ui";ctx.textAlign="right";ctx.fillText("N ↑   E ←",S-14,24)}
+function marks(list,shape,col){ctx.strokeStyle=col;ctx.lineWidth=1.5;for(const s of list||[]){const x=s.nx*S,y=s.ny*S;ctx.beginPath();
+ if(shape==="dia"){ctx.moveTo(x,y-6);ctx.lineTo(x+6,y);ctx.lineTo(x,y+6);ctx.lineTo(x-6,y);ctx.closePath()}else{ctx.moveTo(x-6,y);ctx.lineTo(x+6,y);ctx.moveTo(x,y-6);ctx.lineTo(x,y+6)}ctx.stroke()}}
+function draw(t){ctx.clearRect(0,0,S,S);
+ if(!V){ctx.fillStyle="#02040a";ctx.fillRect(0,0,S,S);hud();return}
+ const dv=i=>V.epochs[i].date, ep=V.epochs[cur];
+ if(view==="swipe"){const x=Math.round(S*$("wipe").value/100);paint(cur);ctx.save();ctx.beginPath();ctx.rect(0,0,x,S);ctx.clip();paint(eA);ctx.restore();
+  ctx.fillStyle="#fff";ctx.fillRect(x-1,0,2,S);ctx.beginPath();ctx.arc(x,S/2,13,0,7);ctx.fillStyle="#5ee6ff";ctx.fill();ctx.fillStyle="#04101a";ctx.font="700 14px system-ui";ctx.textAlign="center";ctx.fillText("↔",x,S/2+5);
+  label("BEFORE "+dv(eA),14,S-16);label("AFTER "+dv(cur),S-14,S-16,"right")}
+ else if(view==="blink"){const b=blinkB;paint(b?cur:eA);label((b?"AFTER ":"BEFORE ")+dv(b?cur:eA),14,S-16)}
+ else if(view==="sub"||view==="add"){const a=imgs.raw[eA],b=imgs.raw[cur];ctx.fillStyle="#000";ctx.fillRect(0,0,S,S);
+  if(a&&b){ctx.drawImage(a,0,0,S,S);if(view==="sub"){ctx.globalCompositeOperation="difference";ctx.drawImage(b,0,0,S,S);ctx.globalCompositeOperation="source-over"}else{ctx.globalAlpha=.5;ctx.drawImage(b,0,0,S,S);ctx.globalAlpha=1}}
+  else label("need two epochs with data",S/2,S/2,"center");
+  label(view==="sub"?`|${dv(cur)} − ${dv(eA)}|`:`mean of ${dv(eA)} and ${dv(cur)}`,14,S-16)}
+ else{paint(cur);label(dv(cur)+(ep.wave?`  ·  ${ep.wave} µm${V.coadd?" (co-add)":""}`:""),14,S-16)}
+ if($("ovGaia").checked)marks(ovl.gaia?.sources,"dia","#5df2a0");
+ if($("ovWise").checked)marks(ovl.wise?.sources,"plus","#ff6fae");
+ if($("ovCand").checked)V.candidates.forEach((c,k)=>{const x=c.nx*S,y=c.ny*S,on=c.epochs.includes(cur)||k===hi,col=KIND[c.kind].c,p=Math.sin(t/300+k)*3;
+  ctx.strokeStyle=col;ctx.globalAlpha=on?1:.4;ctx.lineWidth=k===hi?3:2;ctx.beginPath();ctx.arc(x,y,(k===hi?17:13)+(on?p:0),0,7);ctx.stroke();
+  if(k===hi){ctx.globalAlpha=1;label(KIND[c.kind].t,Math.min(Math.max(x,90),S-90),y<40?y+34:y-24,"center")}ctx.globalAlpha=1});
+ const sx=specPt.nx*S,sy=specPt.ny*S;ctx.strokeStyle="#fff";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(sx-9,sy);ctx.lineTo(sx-3,sy);ctx.moveTo(sx+3,sy);ctx.lineTo(sx+9,sy);ctx.moveTo(sx,sy-9);ctx.lineTo(sx,sy-3);ctx.moveTo(sx,sy+3);ctx.lineTo(sx,sy+9);ctx.stroke();
+ hud()}
+(function f(t){draw(t);requestAnimationFrame(f)})(0);
+
+cv.addEventListener("click",e=>{if(!V)return;const r=cv.getBoundingClientRect(),nx=(e.clientX-r.left)/r.width,ny=(e.clientY-r.top)/r.height,x=nx*S,y=ny*S;
+ let best=-1,bd=18;if($("ovCand").checked)V.candidates.forEach((c,k)=>{const d=Math.hypot(c.nx*S-x,c.ny*S-y);if(d<bd){bd=d;best=k}});
+ if(best>=0){hi=best;syncFinds();document.querySelector(`.find[data-k="${best}"]`)?.scrollIntoView({behavior:"smooth",block:"center"});specPt={nx:V.candidates[best].nx,ny:V.candidates[best].ny}}
+ else specPt={nx,ny};touch();buzz();loadSpec()});
+
+// ---------- controls ----------
+function touch(){if(st.mission&&window.SkyMap)SkyMap.complete(st.mission);if(!touched){touched=true;$("hint").hidden=true}}
+function stop(){clearInterval(timer);timer=null;$("play").textContent=(view==="blink"||view==="sub"||view==="add")?"⇄":"▶"}
+function setCur(i){cur=i;$("t").value=i;syncDots();$("info").textContent=V?V.epochs[i].date:""}
+function syncDots(){document.querySelectorAll("#dots button").forEach((b,i)=>b.classList.toggle("on",i===cur))}
+$("play").onclick=()=>{touch();if(timer){stop();return}$("play").textContent="⏸";
+ timer=setInterval(()=>{if(view==="blink")blinkB=!blinkB;else if(view==="sub"||view==="add"||view==="swipe")setCur((cur+1)%V.epochs.length);else setCur((cur+1)%V.epochs.length)},view==="blink"?700:1000)};
+$("t").oninput=e=>{touch();stop();setCur(+e.target.value);buzz()};
+$("wipe").oninput=touch;$("selA").onchange=e=>{eA=+e.target.value};
+document.querySelectorAll("#segLayer button").forEach(b=>b.onclick=()=>{layer=b.dataset.layer;document.querySelectorAll("#segLayer button").forEach(x=>x.classList.toggle("on",x===b));legend();buzz()});
+const HELP={blink:"Press ⇄: the picture flickers between BEFORE (A) and AFTER (time slider). Whatever changed will “jump”.",swipe:"Drag the bar across the picture: BEFORE on the left, AFTER on the right.",
+ sub:"Shows |AFTER − BEFORE|: anything that moved or changed brightness lights up; unchanged stars cancel out.",add:"Shows the average of the two epochs (adds signal; moving objects appear as two faint spots).",slide:""};
+document.querySelectorAll("#segView button").forEach(b=>b.onclick=()=>{view=b.dataset.view;stop();document.querySelectorAll("#segView button").forEach(x=>x.classList.toggle("on",x===b));
+ $("cmp").hidden=view==="slide";$("wipe").hidden=view!=="swipe";$("cmpHelp").textContent=HELP[view];buzz()});
+function legend(){$("legend").innerHTML=layer==="raw"?"Bright spots: stars and galaxies in infrared light.":
+ '<i style="background:#ffb347"></i>brighter<i style="background:#6fc8ff"></i>fainter · empty = unchanged (epoch minus median of the others)'}
+["ovCand","ovGaia","ovWise"].forEach(id=>$(id).onchange=()=>{if(id==="ovGaia")loadCat("gaia");if(id==="ovWise")loadCat("wise");buzz()});
+$("coadd").onchange=()=>{st.coadd=$("coadd").checked;$("w").disabled=st.coadd;syncUrl();if(meta)refresh()};
+$("load").onclick=()=>{if(readForm()){st.mission=null;cur=0;hi=-1;specPt={nx:.5,ny:.5};init()}};
+[$("inRA"),$("inDec")].forEach(i=>i.addEventListener("keydown",e=>{if(e.key==="Enter")$("load").click()}));
+$("share").onclick=async()=>{syncUrl();try{await navigator.clipboard.writeText(location.href);$("share").textContent="✔ Copied"}catch(e){prompt("Copy this link:",location.href)}setTimeout(()=>$("share").textContent="🔗 Copy link",1500)};
+
+// ---------- data ----------
+const load=im=>new Promise(ok=>{if(!im)return ok(null);const i=new Image();i.onload=()=>ok(i);i.onerror=()=>ok(null);i.src=im});
+class ApiError extends Error{constructor(status,info){super(info.title||"Error");this.status=status;this.info=info}}
+async function api(p){let r;
+ try{r=await fetch(p)}catch(e){throw new ApiError(0,{title:"The SKYDAR server is not responding",detail:"The browser could not reach the server.",hint:"Is python run.py still running? On a hosted site, wait about a minute (free hosts sleep when idle) and retry.",upstream:false})}
+ if(!r.ok){let d=null;try{d=(await r.json()).detail}catch(e){}
+  if(d&&typeof d==="object"&&!Array.isArray(d))throw new ApiError(r.status,d);
+  if(typeof d==="string")throw new ApiError(r.status,{title:d,detail:"",hint:""});
+  if(Array.isArray(d))throw new ApiError(r.status,{title:"Invalid request",detail:d.map(x=>x.msg).join("; "),hint:""});
+  if([502,503,504].includes(r.status))throw new ApiError(r.status,{title:"The server is waking up or overloaded",detail:`HTTP ${r.status} without details.`,hint:"Wait about a minute and try again."});
+  throw new ApiError(r.status,{title:`Request failed (HTTP ${r.status})`,detail:r.statusText,hint:""})}
+ return r.json()}
+const errInfo=e=>e instanceof ApiError?e.info:{title:(e&&e.message)||"Unexpected error",detail:"",hint:""};
+let bn=null;
+function banner(key,o){bn={key};const el=$("banner"),A=o.actions||[];el.className="banner "+(o.level||"err");el.hidden=false;
+ el.innerHTML=`<div class="bt"><b>${esc(o.title)}</b><button class="x" id="bx" aria-label="Dismiss">✕</button></div>${o.detail?`<div class="bd">${esc(o.detail)}</div>`:""}${o.hint?`<div class="bd" style="opacity:.85">💡 ${esc(o.hint)}</div>`:""}${A.length?`<div class="row ba">${A.map((x,i)=>`<button class="btn" data-i="${i}">${esc(x[0])}</button>`).join("")}</div>`:""}`;
+ el.querySelectorAll("button[data-i]").forEach(b=>b.onclick=()=>{unbanner();A[+b.dataset.i][1]()});$("bx").onclick=()=>unbanner()}
+function unbanner(key){if(key&&(!bn||bn.key!==key))return;bn=null;$("banner").hidden=true}
+function fail(key,e,retry){const i=errInfo(e),acts=[["🔄 Try again",retry]];if(!DEMO&&!(e instanceof ApiError&&e.status===0)&&i.upstream!==false)acts.push(["🧪 Use demo data",()=>setMode(true)]);
+ banner(key,{level:"err",title:i.title,detail:i.detail,hint:i.hint,actions:acts})}
+function busy(on,text){$("stage").classList.toggle("load",on);$("over").hidden=!on&&!text;$("over").textContent=text||"Loading SPHEREx images…"}
+
+async function init(){viewReady=true;renderMissionBox();const my=++tok;stop();hi=-1;V=null;spec=null;ovl={gaia:null,wise:null};renderChips();syncUrl();$("finds").innerHTML="";$("meta").innerHTML="";$("msg").className="msg";$("msg").textContent="";busy(true);drawSpec();
+ try{meta=await api(`/api/stack?${q()}`);if(my!==tok)return;
+  const E=meta.epochs;$("t").max=E.length-1;cur=Math.min(cur,E.length-1);
+  $("dots").innerHTML=E.map((e,i)=>`<button data-i="${i}">${e.date.slice(0,7)}</button>`).join("");
+  document.querySelectorAll("#dots button").forEach(b=>b.onclick=()=>{touch();stop();setCur(+b.dataset.i);buzz()});
+  $("selA").innerHTML=E.map(e=>`<option value="${e.i}">${e.date}</option>`).join("");
+  $("w").max=meta.waves.length-1;$("w").value=Math.max(0,meta.waves.findIndex(o=>o.w===meta.best_wave));$("w").disabled=st.coadd;
+  await refresh(my);
+ }catch(e){if(my!==tok)return;busy(false,"Could not load images");fail("view",e,()=>init())}}
+
+async function refresh(my=tok){const o=meta.waves[$("w").value]||{w:meta.best_wave};$("wl").textContent=st.coadd?"all bands":`${o.w} µm`;busy(true);syncUrl();
+ try{const v=await api(`/api/view?${q()}&wave=${o.w}&coadd=${st.coadd}`);if(my!==tok)return;V=v;
+  imgs.raw=await Promise.all(V.epochs.map(e=>load(e.raw)));imgs.diff=await Promise.all(V.epochs.map(e=>load(e.diff)));if(my!==tok)return;
+  busy(false);setCur(Math.min(cur,V.epochs.length-1));eA=0;$("selA").value=0;legend();
+  const ok=V.epochs.filter(e=>e.raw).length;
+  $("msg").className="msg";$("msg").textContent=ok<2?"Too few epochs at this wavelength - move the band slider or co-add all bands.":"";
+  $("hint").hidden=touched||ok<2;renderFinds();renderMeta();loadSpec();
+  if(v.notes&&v.notes.length)banner("view",{level:"warn",title:"Showing saved or partial data",detail:v.notes.join(" "),hint:"Live data returns by itself when the archive recovers.",actions:[["🔄 Check again",()=>refresh()]]});else unbanner("view");
+  if($("ovGaia").checked)loadCat("gaia");if($("ovWise").checked)loadCat("wise");
+ }catch(e){if(my!==tok)return;V=null;busy(false,"No data for this band");
+  if(e instanceof ApiError&&e.status===404){$("msg").className="msg err";$("msg").textContent=errInfo(e).title}else fail("view",e,()=>refresh())}}
+
+function conf(s){return s>20?["high",100]:s>8?["medium",60]:["low",30]}
+function renderFinds(){const C=V.candidates;
+ $("summary").textContent=C.length?`🔎 ${C.length} possible change${C.length>1?"s":""} found (circled on the image). Details: Advanced tools → Candidates.`:"✅ Nothing changed in this patch of sky.";
+ $("finds").innerHTML=C.length?C.map((c,k)=>{const K=KIND[c.kind],[cl,pc]=conf(c.snr);
+  return `<div class="find" data-k="${k}"><div class="ic">${K.ic}</div><div style="flex:1"><b>${K.t}</b><small>${K.d}</small><small>Likelihood of a real change: ${cl}</small><div class="meter"><i style="width:${pc}%"></i></div><small style="margin-top:6px">RA ${c.ra}°, Dec ${c.dec}° · ${c.epochs.map(i=>V.epochs[i].date).join(", ")}</small></div></div>`}).join("")
+  :'<div class="msg">No notable changes - this patch of sky is quiet.</div>';
+ document.querySelectorAll(".find").forEach(d=>d.onclick=()=>{hi=+d.dataset.k;syncFinds();layer="diff";document.querySelectorAll("#segLayer button").forEach(x=>x.classList.toggle("on",x.dataset.layer===layer));legend();specPt={nx:C[hi].nx,ny:C[hi].ny};loadSpec();buzz()});syncFinds()}
+function syncFinds(){document.querySelectorAll(".find").forEach(d=>d.classList.toggle("on",+d.dataset.k===hi))}
+function renderMeta(){$("meta").innerHTML=V.epochs.map(e=>`<tr><td>${e.i+1}</td><td>${e.date}</td><td>${e.wave??"-"}</td><td>${e.n_frames||"-"}</td><td class="${e.flag_pct>5?"warn":""}">${e.flag_pct==null?"-":e.flag_pct+" %"}</td></tr>`).join("")}
+$("w").oninput=()=>{const o=meta.waves[$("w").value];$("wl").textContent=`${o.w} µm`;clearTimeout(window._wt);window._wt=setTimeout(()=>refresh(),300)};
+
+async function loadCat(name){if(ovl[name]){$("ovNote").textContent=ovl[name].note+(ovl[name].demo?" (demo)":"");return}
+ $("ovNote").textContent="Querying "+(name==="gaia"?"Gaia":"AllWISE")+"…";
+ try{ovl[name]=await api(`/api/catalog?ra=${st.ra}&dec=${st.dec}&fov=${st.fov}&name=${name}&demo=${DEMO}`);$("ovNote").textContent=`${ovl[name].sources.length} sources · ${ovl[name].note}`}
+ catch(e){const i=errInfo(e);$("ovNote").textContent=`${i.title}. ${i.detail||""}`}}
+
+// ---------- spectrum ----------
+async function loadSpec(){const my=tok;try{const s=await api(`/api/spectrum?${q()}&nx=${specPt.nx}&ny=${specPt.ny}`);if(my!==tok)return;spec=s;$("specPos").textContent=`RA ${s.ra}° Dec ${s.dec}°`;drawSpec()}catch(e){spec=null;drawSpec()}}
+function drawSpec(){const c=$("spec"),g=c.getContext("2d"),W=c.width,H=c.height;g.clearRect(0,0,W,H);g.font="12px system-ui";
+ if(!spec||!spec.points.length){g.fillStyle="#8b97b8";g.textAlign="left";g.fillText("Spectrum appears here once frames are loaded",16,H/2);return}
+ const pts=spec.points,L=54,R=12,T=14,B=30,xs=pts.map(p=>p.wave),ys=pts.map(p=>p.flux);
+ let x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys,0),y1=Math.max(...ys);if(x1-x0<.05){x0-=.05;x1+=.05}if(y1-y0<1e-9)y1=y0+1;
+ const X=v=>L+(v-x0)/(x1-x0)*(W-L-R),Y=v=>H-B-(v-y0)/(y1-y0)*(H-T-B);
+ g.strokeStyle="rgba(120,170,255,.25)";g.fillStyle="#8b97b8";g.lineWidth=1;
+ for(let k=0;k<=4;k++){const v=y0+(y1-y0)*k/4,y=Y(v);g.beginPath();g.moveTo(L,y);g.lineTo(W-R,y);g.stroke();g.textAlign="right";g.fillText(Math.abs(v)>=100?v.toFixed(0):v.toPrecision(2),L-6,y+4)}
+ for(let k=0;k<=4;k++){const v=x0+(x1-x0)*k/4;g.textAlign="center";g.fillText(v.toFixed(2),X(v),H-14)}
+ g.textAlign="center";g.fillText("wavelength (µm)",(L+W-R)/2,H-1);
+ const eps=[...new Set(pts.map(p=>p.epoch))];
+ eps.forEach((e,k)=>{const col=EPCOL[k%EPCOL.length],pp=pts.filter(p=>p.epoch===e);g.strokeStyle=col;g.fillStyle=col;g.lineWidth=1.5;g.beginPath();pp.forEach((p,i)=>i?g.lineTo(X(p.wave),Y(p.flux)):g.moveTo(X(p.wave),Y(p.flux)));g.stroke();
+  pp.forEach(p=>{g.beginPath();g.arc(X(p.wave),Y(p.flux),2.6,0,7);g.fill()});g.textAlign="left";g.fillRect(L+6+k*74,T-4,8,8);g.fillStyle="#eaf0ff";g.fillText(pp[0].date.slice(0,7),L+18+k*74,T+5)})}
+
+// ---------- link between sky map and time-lapse ----------
+function renderMissionBox(){const t=TARGETS.find(x=>x.id===st.mission);$("missionBox").hidden=!t;$("introBox").hidden=!!t;
+ if(t)$("missionBox").innerHTML=`<b>🎯 Mission: ${t.mission}</b><div class="legend" style="margin-top:4px">${t.story}</div><div style="margin-top:6px"><b>Your task:</b> <span class="legend">${t.look}</span></div>`}
+function openFromSky(o){st.ra=o.ra;st.dec=o.dec;st.fov=o.fov||0.15;st.mission=o.mission||null;cur=0;hi=-1;specPt={nx:.5,ny:.5};writeForm();showTab("v-view");init()}
+$("backSky").onclick=()=>showTab("v-sky");
+
+// ---------- full screen ----------
+function goFull(){
+ try{if(tg&&tg.isFullscreen&&tg.exitFullscreen){tg.exitFullscreen();return}if(tg&&tg.requestFullscreen){tg.requestFullscreen();return}}catch(e){}
+ try{tg?.expand?.()}catch(e){}
+ if(document.fullscreenElement){document.exitFullscreen();return}
+ const d=document.documentElement;
+ if(d.requestFullscreen)d.requestFullscreen().catch(()=>toast(inTG?"Full screen is not available inside Telegram here - tap “Open in browser”.":"Your browser blocked full screen - press F11."));
+ else toast(inTG?"Full screen is not available inside Telegram here - tap “Open in browser”.":"Press F11 for full screen.")}
+function openBrowser(){const u=location.origin+"/app/"+location.search;try{tg.openLink(u)}catch(e){window.open(u,"_blank")}}
+$("tg-full").onclick=goFull;$("hb-full").onclick=goFull;
+if(inTG){["tg-web","hb-web"].forEach(i=>{$(i).hidden=false;$(i).onclick=openBrowser})}
+$("tg-menu").onclick=()=>{const m=$("sk-menu").classList.toggle("open");$("tg-menu").textContent=m?"✕ Close":"☰ Menu"};
+$("skycv").addEventListener("pointerdown",()=>{$("sk-menu").classList.remove("open");$("tg-menu").textContent="☰ Menu"});
+
+// ---------- data mode: demo / real ----------
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function toast(t){const el=$("toast");el.textContent=t;el.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>el.hidden=true,5000)}
+function modeUI(){document.querySelectorAll("#modeSw button").forEach(b=>b.classList.toggle("on",(b.dataset.m==="demo")===DEMO));
+ $("evMode").textContent=DEMO?"🧪 Demo (synthetic, for trying things out)":"🛰 Real SPHEREx observations"}
+function setMode(demo){
+ if(!demo&&!REAL_OK){toast(`Real data needs extra packages. In the terminal run:  pip install ${REAL_MISSING.join(" ")}  - then restart run.py`);modeUI();return}
+ if(demo===DEMO)return;
+ DEMO=demo;try{localStorage.setItem("skydar_mode",demo?"demo":"real")}catch(e){}
+ modeUI();toast(demo?"🧪 Demo mode: synthetic data":"🛰 Real mode: the first load of each sky patch can take 30-60 s");
+ meta=null;V=null;ovl={gaia:null,wise:null};EVENTS=[];evResp=null;renderEvents();SkyMap.setEvents([]);syncUrl();
+ if(viewReady)init();loadEvents(false)}
+document.querySelectorAll("#modeSw button").forEach(b=>b.onclick=()=>setMode(b.dataset.m==="demo"));
+
+// ---------- events: science turned into things people can act on ----------
+const ICON={moving:"🏃",variable:"💥",transient:"✨",asteroid:"☄️",release:"📡"},EVC={moving:"#ff5d73",variable:"#ffb347",transient:"#5ee6ff",asteroid:"#d0d6e8",release:"#9b7bff"};
+const CONFTXT={high:"strong signal",medium:"likely real",low:"uncertain"};
+const visCache={};
+async function visText(ra,dec){const L=SkyMap.getLoc();if(!L.ok)return "📍 Set your location to see when to look from where you are.";
+ const k=`${ra.toFixed(3)},${dec.toFixed(3)},${L.lat.toFixed(1)},${L.lon.toFixed(1)}`,T=s=>new Date(s).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+ try{const v=visCache[k]||(visCache[k]=await api(`/api/visibility?ra=${ra}&dec=${dec}&lat=${L.lat}&lon=${L.lon}`));
+  if(v.status==="visible")return `👀 <b>Tonight:</b> best around ${T(v.best)} - ${v.alt}° up, toward ${v.dir}. Dark and above the horizon ${T(v.from)}-${T(v.to)}.`;
+  if(v.status==="daylight")return "🌤 In the next 24 h it is above your horizon only in daylight/twilight - try another night.";
+  return `🌍 It stays below your horizon for the next 24 h (max ${v.max_alt}°) - not visible from where you are.`}
+ catch(e){return ""}}
+async function loadEvents(force){clearTimeout(evTimer);
+ try{const r=await api(`/api/events?demo=${DEMO}${force?"&refresh=true":""}`);evResp=r;EVENTS=r.events;renderEvents();SkyMap.setEvents(EVENTS);unbanner("events");loadStatus();
+  if(r.scanning)evTimer=setTimeout(()=>loadEvents(false),3000)}
+ catch(e){evResp=null;EVENTS=[];$("evStatus").innerHTML=`<span style="color:var(--rd)">Could not load events: ${esc(errInfo(e).title)}</span>`;$("evList").innerHTML="";SkyMap.setEvents([]);fail("events",e,()=>loadEvents(true))}}
+function botLink(e){return CFG.bot&&e.target&&TARGETS.some(t=>t.id===e.target)?`<a class="btn" style="margin-top:8px;display:block" target="_blank" rel="noopener" href="https://t.me/${CFG.bot}?start=watch_${e.target}">🔔 Alert me in Telegram</a>`:""}
+function renderEvents(){const r=evResp;$("evBot").textContent=CFG.bot?`Telegram alerts: @${CFG.bot}`:"Telegram alerts: put BOT_TOKEN in .env and run the bot - then an “Alert me” button appears here.";
+ if(!r){$("evList").innerHTML="";return}
+ const stat=r.scanning?`⏳ Scanning ${r.progress}/${r.total} sky patches…`:`✅ Updated ${r.updated?new Date(r.updated*1000).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):""}`;
+ $("evStatus").innerHTML=stat+(r.errors&&r.errors.length?`<br><span style="color:var(--or)">⚠ ${r.errors.slice(0,3).map(esc).join("<br>⚠ ")}</span>`:"");
+ $("evList").innerHTML=EVENTS.length?EVENTS.map((e,i)=>`<div class="ev glass" style="border-left:4px solid ${EVC[e.kind]||"#fff"}"><div class="evh"><span class="evi">${ICON[e.kind]||"🔭"}</span><div><b>${esc(e.title)}</b><div class="legend">${e.demo?"🧪 DEMO · ":""}${esc(e.target_name||"")} · ${e.kind==="release"?"archive":CONFTXT[e.conf]||""}${e.new?" · 🆕 new":""}</div></div></div><p style="margin:8px 0">${esc(e.text)}</p><div class="legend" id="w${i}">${e.ra!=null?"…":""}</div>${e.vis?`<div class="legend" style="margin-top:4px">🔭 ${esc(e.vis)}</div>`:""}<div class="row" style="margin-top:10px">${e.ra!=null?`<button class="btn" data-a="sky" data-i="${i}">🌌 Show on sky</button>`:""}${e.field?`<button class="btn pri" data-a="lapse" data-i="${i}">🎞 Time-lapse</button>`:""}</div>${botLink(e)}</div>`).join(""):`<div class="msg">${r.scanning?"Looking for changes…":"✅ Nothing new - the sky is quiet."}</div>`;
+ EVENTS.forEach((e,i)=>{if(e.ra!=null)visText(e.ra,e.dec).then(t=>{const el=$("w"+i);if(el)el.innerHTML=t})});
+ document.querySelectorAll("#evList button[data-a]").forEach(b=>b.onclick=()=>{const e=EVENTS[+b.dataset.i];
+  if(b.dataset.a==="sky"){showTab("v-sky");SkyMap.flyTo(e.ra,e.dec);SkyMap.selectEvent(e)}else openFromSky({ra:e.field[0],dec:e.field[1],fov:e.field[2],mission:null})})}
+async function loadStatus(){const el=$("evSvc");if(DEMO){el.textContent="";return}
+ try{const s=await api("/api/status");el.innerHTML="Archives now: "+s.services.map(x=>`${x.ok?"✅":"⚠️"} ${esc(x.name)}${x.ok?` (${x.ms} ms)`:` - ${esc(x.note)}`}`).join(" · ")}catch(e){el.textContent=""}}
+$("evScan").onclick=()=>{toast("Scanning the sky…");loadEvents(true)};
+$("evLoc").onclick=()=>SkyMap.locate();
+
+// ---------- phone pointing is not part of the challenge; kept out for simplicity ----------
+(async function boot(){
+ let H={demo:true,real_ok:true,real_missing:[]};
+ try{H=await api("/api/health")}catch(e){}
+ REAL_OK=H.real_ok!==false;REAL_MISSING=H.real_missing||[];
+ try{CFG=await api("/api/config")}catch(e){}
+ $("devName").innerHTML=CFG.developer?(CFG.link?`<a href="${esc(CFG.link)}" target="_blank" rel="noopener" style="color:var(--cy)">${esc(CFG.developer)}</a>`:esc(CFG.developer)):"<i>(add your name: DEVELOPER_NAME in .env)</i>";
+ let want=H.demo;try{const m=localStorage.getItem("skydar_mode");if(m)want=m==="demo"}catch(e){}
+ if(P.get("demo")!==null)want=P.get("demo")!=="0";
+ if(!want&&!REAL_OK){want=true;toast(`Real data needs extra packages (pip install ${REAL_MISSING.join(" ")}) - showing demo data.`)}
+ DEMO=want;modeUI();
+ try{const t=await api("/api/targets");TARGETS=t.targets;DET=t.detectors}catch(e){TARGETS=[];DET={D4:{lo:2.42,hi:3.82}}}
+ $("inDet").innerHTML=Object.entries(DET).map(([k,d])=>`<option value="${k}">${k} · ${d.lo}–${d.hi} µm</option>`).join("");
+ if(!DET[st.det])st.det="D4";writeForm();$("cmpHelp").textContent="";
+ if(window.SkyMap)SkyMap.init({targets:TARGETS,onOpen:openFromSky,visibility:visText,onEvents:()=>showTab("v-events"),onLoc:()=>{if($("v-events").classList.contains("on"))renderEvents()}});
+ fetch("/api/stars").then(r=>r.ok?r.json():Promise.reject(new Error("HTTP "+r.status))).then(L=>SkyMap.setCatalog(L))
+  .catch(()=>{SkyMap.setCatalog(null);toast("Only the 115 brightest stars are loaded. For all ~5000 stars run  python get_stars.py  and restart.")});
+ loadEvents(false);
+ showTab(P.get("ra")!==null||P.get("embed")==="1"?"v-view":"v-sky")})();
+</script></body></html>
