@@ -51,26 +51,10 @@ The `DEMO` value in `.env` is only the default. Your choice is remembered in the
 | Easy to update with new data | frames are discovered live via IRSA TAP; the bot re-checks on a schedule and announces new releases (`irsa.latest_obs`); `GET /api/refresh` clears the cache |
 | Events / alerts | `backend/events.py` -> `/api/events`, Events tab, sky-map beacons, Telegram bot |
 
-## Run (5 steps)
-1. Python 3.10+: `pip install -r requirements.txt`
-   (real-data mode needs `astropy`, `pyvo`, `reproject`; if they fail to install on Python 3.14 use a 3.12/3.13 virtualenv)
-2. *(optional, Telegram)* @BotFather → `/newbot` → copy the token.
-3. `copy .env.example .env` (Windows) / `cp .env.example .env`, set `BOT_TOKEN=` if you want the bot; keep `DEMO=1` for the first run.
-4. *(optional)* install **cloudflared** for https (Telegram Mini App requires it): `winget install Cloudflare.cloudflared`.
-5. `python run.py` — the browser opens automatically. If port 8000 is busy, the next free port is used.
-
-Folder layout must be: `run.py`, `backend/`, `bot/`, `webapp/index.html`, `data/`.
 
 ## Real data
 1. `python check_irsa.py` — checks IRSA TAP, cutouts, Gaia and AllWISE.
 2. In `.env` set `DEMO=0`, restart. The first request for a new position takes tens of seconds (TAP ≈ 15 s + cutouts); then it is cached in `data/cache/`.
-
-## Troubleshooting
-* **Sky map** no longer needs CDS/Aladin at all (the old black-sky problem was CDS being unreachable from some networks).
-* **"Failed to fetch"** in the Time-lapse tab = the Python server is not running; start `python run.py` and keep that terminal open.
-* The browser asks for your location to set the sky correctly; if you refuse, tap 📍 to type latitude/longitude.
-* **`WinError 10048` (port in use)** — an old `run.py` is still running; handled automatically now, or `netstat -ano | findstr :8000` + `taskkill /PID <pid> /F`.
-* Check `http://localhost:8000/api/health` → `{"ok":true,"demo":true}`.
 
 ## How it works
 1. IRSA TAP (`spherex.artifact` ⨝ `spherex.plane`, `CONTAINS(POINT, poly)`, `energy_bandpassname='SPHEREx-Dn'`) → frame list with MJD.
@@ -82,24 +66,6 @@ Folder layout must be: `run.py`, `backend/`, `bot/`, `webapp/index.html`, `data/
 7. Classification: variable (changes in place), mover (mirrored +/− or traces at different places), transient.
 8. Spectrum = aperture photometry (r = 3 grid px) minus local background in every frame, plotted vs wavelength.
 
-## Telegram bot
-`/watch <preset>` or `/watch RA DEC [name]`, `/events`, `/list`, `/unwatch ID`, `/location LAT LON [UTC_OFFSET]` (enables "when and where to look"), `/demo`.
-Deep link `https://t.me/<bot>?start=watch_barnard` subscribes to a preset (the web app shows this as an "Alert me in Telegram" button once the bot runs).
-A scheduler job (every `CHECK_EVERY_MIN`, default 6 h, APScheduler - no Celery needed) re-scans subscriptions and sends only events the chat has not received yet
-(table `sent` in `data/skydar.db`). Everyone with a subscription also gets "new SPHEREx data" notices.
-
-The button left of the message box is the **command menu** ("Menu"); the bot fills it on every start (`set_bot_commands` in `bot/bot.py`).
-The sky map is opened with `/app`, the buttons under bot messages, or a pinned message. (A web-app menu button would replace the command list, so it is not used.)
-
-## Hosting + custom domain (stable URL, 24/7)
-`python run.py` on a laptop gives a *temporary* https address (cloudflared quick tunnel) that changes on every start. For a stable public site and bot:
-1. Push the repo to GitHub (without `.env` and `data/`). 2. Create a Web Service on a host (Render, Railway, Fly.io, a VPS).
-3. Build command `pip install -r requirements-demo.txt` (light, demo data; use `requirements.txt` + more RAM for real data), start command `python run.py`.
-4. Environment variables: `BOT_TOKEN`, `PUBLIC_URL` (the host's https URL or your domain, no trailing slash), `DEMO=1`, `DEVELOPER_NAME`, `DEVELOPER_LINK`. The host sets `PORT` itself.
-5. Stop `python run.py` on your own computer while the hosted bot runs - two programs cannot poll the same bot token.
-6. Add your domain in the host's "Custom domains" settings and create the DNS record it shows (TLS certificate is issued automatically), then set `PUBLIC_URL` to the domain.
-7. @BotFather -> /mybots -> your bot -> Bot Settings -> Configure Mini App -> enable it with the same URL (`https://your-domain/app/`) to get a permanent "Open app" button on the bot's page.
-Free hosting plans may sleep when idle (the bot sleeps too) and do not keep `data/` between restarts.
 
 ## Event types
 | kind | meaning | how it is detected |
@@ -113,7 +79,7 @@ Free hosting plans may sleep when idle (the bot sleeps too) and do not keep `dat
 ## API
 `/api/events` · `/api/visibility` · `/api/config` · `/api/targets` · `/api/stack` · `/api/view` · `/api/spectrum` · `/api/catalog?name=gaia|wise` · `/api/blink.gif` · `/api/sky.jpg` · `/api/refresh` · `/api/health`
 
-## Limitations (be honest with the judges)
+## Limitations 
 * Real-data paths (IRSA cutouts, Gaia/AllWISE overlays, SkyBoT, release detection) and the Telegram bot were written against the public service docs but could not be run in the authoring sandbox - run `python check_irsa.py` first.
 * Demo events are synthetic by design (marked DEMO). In real mode an "event" is only a candidate detection plus context, not a confirmed discovery.
 * Visibility ignores the Moon and weather; "needs a telescope" notes for presets are approximate magnitudes.
@@ -122,16 +88,7 @@ Free hosting plans may sleep when idle (the bot sleeps too) and do not keep `dat
 * At least 2 epochs at the same wavelength are needed; fresh sky regions may have only one.
 * Demo mode uses synthetic data (marked DEMO in the UI). Spectrum units are relative (MJy/sr × pixels), not calibrated flux.
 * Preset coordinates of fast movers are approximate positions for 2026.0 — verify with the Gaia overlay.
-* No Telegram `initData` validation on the backend.
 
-## Developer / AI credit
-Set `DEVELOPER_NAME` (and optionally `DEVELOPER_LINK`) in `.env` (or in your hosting's environment variables): it appears in the app (About tab) and in the bot (`/about`).
-The "Built with Claude" statement is plain text in `webapp/index.html` (search for "Built with Claude") and in `bot/bot.py` (`about_text`).
-
-## Phone / sensors
-🧭 **Gyroscope** (Sky tab, off by default): hold the phone up like a window and move it around. Uses the browser motion sensors (needs https, i.e. the tunnel/hosted URL;
-iOS asks for permission) or Telegram's own sensor API. If no data arrives within a few seconds it switches itself off and suggests "Open in browser".
-The menu is collapsed behind ☰ on narrow screens. 🌐 in the header (inside Telegram) and a "🌐 Open in browser" button in bot messages open the normal browser.
 
 ## Credits
 NASA/IPAC Infrared Science Archive (IRSA) — SPHEREx Spectral Images (TAP + Cutout service), AllWISE; ESA Gaia DR3; CDS (Aladin Lite, hips2fits, DSS2, 2MASS).
