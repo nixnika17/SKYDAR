@@ -1,5 +1,5 @@
 ---
-title: SkyDar
+title: SKYDAR
 emoji: 🔭
 colorFrom: blue
 colorTo: indigo
