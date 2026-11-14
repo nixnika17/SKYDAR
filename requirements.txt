@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+numpy
+scipy
+pillow
+requests
+python-dotenv
+aiogram>=3.4
+apscheduler
+# only for real SPHEREx data and catalogue overlays (not needed with DEMO=1):
+astropy
+pyvo
+reproject
