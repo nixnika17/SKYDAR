@@ -1,0 +1,10 @@
+# Light install for hosting (demo data only). Real-data mode needs the full requirements.txt (astropy, pyvo, reproject).
+fastapi
+uvicorn[standard]
+numpy
+scipy
+pillow
+requests
+python-dotenv
+aiogram>=3.4
+apscheduler

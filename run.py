@@ -1,3 +1,4 @@
+# SI-assisted: written with Claude (Anthropic's AI assistant); reviewed, tested and directed by the project developer.
 """One command: python run.py  -> API + web app + bot (+ https tunnel if cloudflared is installed)."""
 import asyncio, atexit, os, re, shutil, socket, subprocess, threading, time, logging, webbrowser
 from dotenv import load_dotenv
