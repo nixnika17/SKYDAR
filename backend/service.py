@@ -1,3 +1,4 @@
+# SI-assisted: written with Claude (Anthropic's AI assistant); reviewed, tested and directed by the project developer.
 """Core: frame stack -> epochs -> same-wavelength matching (or co-add) -> difference -> candidates -> JPEG/GIF/spectrum."""
 import io, os, time, base64, threading, datetime as dt
 import numpy as np
@@ -40,11 +41,19 @@ def get_stack(ra, dec, fov, det="D4", demo_mode=None):
         hit = _cache.get(key)
         if hit and time.time() - hit[0] < 1800:
             return hit[1]
-    if demo_mode:
-        frames, n = demo.stack(ra, dec, fov, det)
-    else:
-        from . import irsa
-        frames, n = irsa.stack(ra, dec, fov, det)
+    notes = []
+    try:
+        if demo_mode:
+            frames, n = demo.stack(ra, dec, fov, det)
+        else:
+            from . import irsa
+            frames, n, notes = irsa.stack(ra, dec, fov, det)
+    except Exception as e:
+        if hit:  # refresh failed: serve the last good copy and say so
+            from . import errors
+            st = dict(hit[1], notes=[f"{errors.explain(e, 'NASA/IPAC IRSA')['title']}. Showing the copy saved at {time.strftime('%H:%M', time.localtime(hit[0]))}."])
+            return st
+        raise
     if not frames:
         raise LookupError("No SPHEREx frames for this position / detector")
     frames.sort(key=lambda f: f["mjd"])
@@ -57,7 +66,7 @@ def get_stack(ra, dec, fov, det="D4", demo_mode=None):
     for e in range(ep + 1):
         ms = [f["mjd"] for f in frames if f["epoch"] == e]
         epochs.append(dict(i=e, mjd=float(np.mean(ms)), date=mjd_date(np.mean(ms)), n=len(ms)))
-    st = dict(frames=frames, n=n, epochs=epochs, ra=ra, dec=dec, fov=fov, det=det, demo=demo_mode, coadds={})
+    st = dict(frames=frames, n=n, epochs=epochs, ra=ra, dec=dec, fov=fov, det=det, demo=demo_mode, coadds={}, notes=notes)
     with _lock:
         _cache[key] = (time.time(), st)
     return st
@@ -108,7 +117,7 @@ def best_wave(st):
 
 def meta(st):
     return dict(n=st["n"], demo=st["demo"], det=st["det"], fov=st["fov"], scale=SCALE, n_frames=len(st["frames"]),
-                epochs=st["epochs"], waves=wave_options(st), best_wave=best_wave(st))
+                epochs=st["epochs"], waves=wave_options(st), best_wave=best_wave(st), notes=st.get("notes", []))
 
 
 # ---------- detection ----------
@@ -196,12 +205,12 @@ def build_view(st, wave=None, coadd=False):
                         n_frames=f.get("n", 1) if f else 0, flag_pct=f.get("flag_pct") if f else None,
                         raw=raw.get(i), diff=diff_jpg.get(i)))
     shown = wave if not coadd else float(np.mean([f["wave"] for f in sel if f]))
-    return dict(wave=round(shown, 3), coadd=coadd, epochs=eps, candidates=cands, n=st["n"], demo=st["demo"])
+    return dict(wave=round(shown, 3), coadd=coadd, epochs=eps, candidates=cands, n=st["n"], demo=st["demo"], notes=st.get("notes", []))
 
 
 def view_json(v):
     b64 = lambda b: ("data:image/jpeg;base64," + base64.b64encode(b).decode()) if b else None
-    return dict(wave=v["wave"], coadd=v["coadd"], n=v["n"], demo=v["demo"], candidates=v["candidates"],
+    return dict(wave=v["wave"], coadd=v["coadd"], n=v["n"], demo=v["demo"], candidates=v["candidates"], notes=v.get("notes", []),
                 epochs=[dict(e, raw=b64(e["raw"]), diff=b64(e["diff"])) for e in v["epochs"]])
 
 

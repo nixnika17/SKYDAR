@@ -1,3 +1,4 @@
+# SI-assisted: written with Claude (Anthropic's AI assistant); reviewed, tested and directed by the project developer.
 """Overlay catalogues: Gaia DR3 (ESA TAP) and AllWISE (IRSA TAP), returned as normalised image positions.
 Gaia positions (epoch 2016.0) are propagated to EPOCH_NOW with proper motions - essential for Barnard's Star etc."""
 import logging, math, threading, time
@@ -15,9 +16,19 @@ def _f(v):
     return float("nan") if np.ma.is_masked(v) else float(v)
 
 
+_SESS = None
+
+
 def _tap(url, q):
+    global _SESS
     import pyvo
-    return pyvo.dal.TAPService(url).search(q, maxrec=1500).to_table()
+    from . import errors
+    _SESS = _SESS or errors.session()  # retries 429/5xx with a pause
+    try:
+        svc = pyvo.dal.TAPService(url, session=_SESS)
+    except TypeError:  # older pyvo without the session argument
+        svc = pyvo.dal.TAPService(url)
+    return svc.search(q, maxrec=1500).to_table()
 
 
 def _gaia(ra, dec, r):

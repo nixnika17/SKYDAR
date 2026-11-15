@@ -1,3 +1,4 @@
+# SI-assisted: written with Claude (Anthropic's AI assistant); reviewed, tested and directed by the project developer.
 """Static reference data shared by the web app, the API and the Telegram bot."""
 
 # SPHEREx has six H2RG detector arrays; each covers a part of 0.75-5.0 um (17 bands per array = 102 bands).

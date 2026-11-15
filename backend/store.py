@@ -1,3 +1,4 @@
+# SI-assisted: written with Claude (Anthropic's AI assistant); reviewed, tested and directed by the project developer.
 import sqlite3, threading
 from pathlib import Path
 

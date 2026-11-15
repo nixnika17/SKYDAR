@@ -1,3 +1,4 @@
+# SI-assisted: written with Claude (Anthropic's AI assistant); reviewed, tested and directed by the project developer.
 """Server-side sky background (CDS hips2fits). Fetched by the backend so the browser never has to reach CDS directly
 (blocked CDN / ad-blocker / ISP issues were the reason the Sky tab stayed black). Several mirrors are tried."""
 import logging, threading, time

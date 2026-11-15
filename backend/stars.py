@@ -1,3 +1,4 @@
+# SI-assisted: written with Claude (Anthropic's AI assistant); reviewed, tested and directed by the project developer.
 """Naked-eye star catalogue (~5000 stars to magnitude 6) for the sky map.
 Downloaded once by the SERVER (so the browser never needs the CDN) from the open d3-celestial data set and cached in data/.
 You can also place the file yourself as data/stars.6.json. The format is verified against Sirius before it is trusted."""

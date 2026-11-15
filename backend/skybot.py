@@ -1,3 +1,4 @@
+# SI-assisted: written with Claude (Anthropic's AI assistant); reviewed, tested and directed by the project developer.
 """Known asteroids / comets predicted inside a field (IMCCE SkyBoT cone search). EXPERIMENTAL, best effort:
 if the service is unreachable or answers in an unexpected format we simply return nothing."""
 import logging

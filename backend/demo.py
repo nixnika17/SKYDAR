@@ -1,3 +1,4 @@
+# SI-assisted: written with Claude (Anthropic's AI assistant); reviewed, tested and directed by the project developer.
 """Synthetic SPHEREx-like frame stack (no network needed).
 Shows the main SPHEREx trap: wavelength varies across a frame (linear variable filter), so only frames with the
 same wavelength may be compared. The field has stars of different colour, a variable star (brightens between

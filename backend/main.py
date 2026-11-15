@@ -1,9 +1,13 @@
+# SI-assisted: written with Claude (Anthropic's AI assistant); reviewed, tested and directed by the project developer.
 import logging, os
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from . import service as S, sky, catalogs, stars as STARS, events as EV, visibility as VIS
+import time
+from concurrent.futures import ThreadPoolExecutor
+import requests
+from . import service as S, sky, catalogs, stars as STARS, events as EV, visibility as VIS, errors as ERR
 from .reference import DETECTORS, TARGETS
 
 log = logging.getLogger("skydar.api")
@@ -20,7 +24,8 @@ def _mode(demo):
     if not d:
         ok, missing = S.real_status()
         if not ok:
-            raise HTTPException(503, f"Real-data mode needs extra packages: pip install {' '.join(missing)}")
+            raise HTTPException(503, dict(title="Real-data mode needs extra Python packages", detail="Missing: " + ", ".join(missing),
+                                          hint=f"Run: pip install {' '.join(missing)} - then restart. Demo data keeps working.", upstream=False, code=None, service="SKYDAR"))
     return d
 
 
@@ -41,7 +46,8 @@ def _stack(ra, dec, fov, detector, demo):
         raise HTTPException(404, str(e))
     except Exception as e:
         log.exception("stack failed")
-        raise HTTPException(502, f"IRSA / processing error: {type(e).__name__}: {e}")
+        info = ERR.explain(e, "NASA/IPAC IRSA")
+        raise HTTPException(503 if info["upstream"] else 500, info)
 
 
 @app.get("/api/health")
@@ -100,7 +106,25 @@ def catalog(ra: float, dec: float, fov: float = 0.1, name: str = "gaia", demo: b
         raise HTTPException(422, str(e))
     except Exception as e:
         log.warning("catalogue %s failed: %s", name, e)
-        raise HTTPException(502, f"Catalogue service unreachable: {type(e).__name__}")
+        raise HTTPException(503, ERR.explain(e, "ESA Gaia archive" if name == "gaia" else "NASA/IPAC IRSA (AllWISE)"))
+
+
+@app.get("/api/status")
+def status():
+    """Live health of the outside services we depend on (VOSI 'availability' endpoints), so the UI can say who is down."""
+    checks = [("NASA/IPAC IRSA", "https://irsa.ipac.caltech.edu/TAP/availability"), ("ESA Gaia", "https://gea.esac.esa.int/tap-server/tap/availability")]
+
+    def ping(c):
+        name, url = c
+        t = time.time()
+        try:
+            r = requests.get(url, timeout=6)
+            ok = r.status_code < 400
+            return dict(name=name, ok=ok, code=r.status_code, ms=int((time.time() - t) * 1000), note="" if ok else f"error {r.status_code}")
+        except Exception as e:
+            return dict(name=name, ok=False, code=None, ms=None, note=ERR.explain(e, name)["title"].replace(name + " ", ""))
+    with ThreadPoolExecutor(len(checks)) as ex:
+        return dict(services=list(ex.map(ping, checks)))
 
 
 @app.get("/api/events")

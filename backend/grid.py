@@ -1,3 +1,4 @@
+# SI-assisted: written with Claude (Anthropic's AI assistant); reviewed, tested and directed by the project developer.
 """Shared north-up pixel grid onto which every frame is projected (so blinking does not jump and markers line up)."""
 import math
 

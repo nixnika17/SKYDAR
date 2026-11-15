@@ -1,3 +1,4 @@
+# SI-assisted: written with Claude (Anthropic's AI assistant); reviewed, tested and directed by the project developer.
 """When and where to look: altitude/azimuth of a sky position for an observer over the next 24 h (Sun-aware)."""
 import datetime as dt, math
 

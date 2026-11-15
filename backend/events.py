@@ -1,10 +1,11 @@
+# SI-assisted: written with Claude (Anthropic's AI assistant); reviewed, tested and directed by the project developer.
 """Bridge between science and people: turn raw SPHEREx detections into plain-language sky EVENTS
 (something moved / got brighter / new data arrived / a known asteroid passes) that can be shown on the sky map,
 in the event feed and pushed by the Telegram bot."""
 import datetime as dt, json, logging, math, threading, time
 from pathlib import Path
 import numpy as np
-from . import service as S
+from . import service as S, errors as ERR
 from .grid import SCALE
 from .reference import TARGETS
 
@@ -135,13 +136,13 @@ def scan_all(demo_mode, progress=None):
     try:
         events.append(release_event(demo_mode))
     except Exception as e:
-        errors.append(f"data status: {type(e).__name__}")
+        errors.append("data status: " + ERR.line(e, "NASA/IPAC IRSA"))
     for i, tg in enumerate(TARGETS):
         try:
             events += scan_point(tg, demo_mode)
         except Exception as e:
             log.warning("scan %s: %s", tg["id"], e)
-            errors.append(f"{tg['name']}: {type(e).__name__}: {e}"[:160])
+            errors.append(f"{tg['name']}: {ERR.line(e, 'NASA/IPAC IRSA')}"[:200])
         if progress:
             progress(i + 1)
     events.sort(key=lambda e: (e["kind"] != "release", RANK.get(e["conf"], 3), -e["snr"]))
