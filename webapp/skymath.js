@@ -1,3 +1,4 @@
+/* SI-assisted: written with Claude (Anthropic's AI assistant); reviewed, tested and directed by the project developer. */
 /* Pure sky maths (no DOM): sidereal time, equatorial <-> horizontal, stereographic projection. */
 const SkyMath=(()=>{
  const R=Math.PI/180, norm=a=>((a%360)+360)%360;

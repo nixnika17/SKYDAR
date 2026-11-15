@@ -1,3 +1,4 @@
+/* SI-assisted: written with Claude (Anthropic's AI assistant); reviewed, tested and directed by the project developer. */
 /* First-person sky map: you stand on the ground and look up. Drag to look around, tap a star (or any spot) to see what changes there.
    Everything is drawn locally from stars.js - no external servers needed. */
 const SkyMap=(()=>{

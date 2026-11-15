@@ -1,3 +1,4 @@
+/* SI-assisted: written with Claude (Anthropic's AI assistant); reviewed, tested and directed by the project developer. The 115 star positions, constellation figures and fun facts below were written by the AI assistant from general knowledge: approximate and not verified against a catalogue (the full catalogue is downloaded from d3-celestial). */
 /* ~120 of the brightest stars (J2000, approximate - good enough for a naked-eye sky map).
    [name, RA "h m s", Dec "+d m s", visual magnitude, constellation] */
 const STARS=[
