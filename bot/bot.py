@@ -1,3 +1,4 @@
+# SI-assisted: written with Claude (Anthropic's AI assistant); reviewed, tested and directed by the project developer.
 """Telegram bot: turns SPHEREx changes into alerts ("what happened, where, and WHEN/WHERE to look") with a time-lapse GIF."""
 import asyncio, datetime as dt, logging, os
 from aiogram import Bot, Dispatcher, types
